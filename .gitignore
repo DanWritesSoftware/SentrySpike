@@ -1,0 +1,16 @@
+# Virtual environments
+venv*/
+
+# Captured frames
+captures/
+
+# Database
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment / secrets
+.env

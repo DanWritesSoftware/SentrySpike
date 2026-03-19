@@ -1,0 +1,64 @@
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Config:
+    '''
+    Camera / Input
+    '''
+    camera_index: int = 0                       # OpenCV camera index (0 = default webcam, 1+ = other cameras)
+    image_size: int = 224                       # Input resolution expected by the Akida/ImageNet model (square)
+
+    '''
+    Motion watcher (always-on loop)
+    '''
+    
+    motion_confirm_frames: int = 3              # How many consecutive motion hits required
+    motion_cooldown_seconds: int = 15           # How many seconds to wait before triggering a new detection
+
+    '''
+    Burst capture (event confirmation)
+    '''
+
+    burst_frames: int = 15                      # Number of frames to capture in a burst when an event is triggered
+    burst_sleep_seconds: float = 0.08           # Delay between frames during burst capture (controls burst duration)
+    burst_topk: int = 5                         # Number of top predictions to compute from the aggregated burst output
+    burst_min_frame_confidence: float = 0.10    # Optional per-frame confidence floor; frames below this can be ignored
+
+    '''
+    Burst decision thresholds
+    '''
+    gate_threshold: float = 0.0                 # Akida poetntial: >0 = animal
+    confidence_threshold: float = 0.65          # Minimum aggregated confidence required to accept a burst classification
+    stability_threshold: float = 0.60           # Minimum stability score (agreeing frames / total frames) required to accept a burst
+    cooldown_seconds: float = 10.0              # Cooldown period after a successful event to prevent retriggering on the same animal
+
+    '''
+    Motion detection parameters
+    '''
+
+    motion_method = "bgsub"                      # "diff" for frame diffrenceing, "bgsub" for background subtraction
+    bgsub_method = "MOG2"                       # "MOG2" or "KNN"
+
+    motion_difference_threshold: int = 7        # Pixel intensity difference threshold for motion detection
+    motion_min_area: int = 80                   # Minimum contour area (in pixels) to count as real motion (filters noise, leaves)
+    motion_blur_ksize: int = 5                  # Gaussian blur kernel size for motion detection (must be odd; higher = smoother)
+    motion_morph_iterations: int = 1            # Number of dilation/erosion iterations to clean up the motion mask
+    motion_pad: int = 15                        # Extra padding (pixels) added around motion bounding box for context
+
+    bgsub_warmup_frames = 30
+    bgsub_var_threshold = 16
+    bgsub_bin_thresh = 200
+    bgsub_dilate_iters = 2
+    bgsub_freeze_during_event = True
+
+    '''
+    Saving / Output
+    '''
+    
+    save_directory: str = "captures"            # Root directory where burst images and metadata are saved
+
+    '''
+    Database
+    '''
+
+    database_path: str = "SentrySpike_Events.db"
