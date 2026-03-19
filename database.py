@@ -159,3 +159,86 @@ def close_event(event_id, end_time, frame_count):
     finally:
         conn.close()
 
+'''
+Inference Service
+'''
+
+def get_pending_events():
+    '''
+    Get events waiting for inference, oldest first.
+
+    returns events with status='awaiting inference'
+    '''
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """SELECT event_id, start_time, frame_count
+               FROM events
+               WHERE status = 'awaiting_inference'
+               ORDER BY created_at ASC"""
+        ).fetchall()
+        return rows
+    finally:
+        conn.close()
+
+def get_event_frames(event_id):
+    '''
+    Get all frames for an event, ordered by capture time.
+
+    used by the inference service to find the image paths, and by Flask for the event detail view.
+    '''
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """SELECT frame_id, timestamp, image_path, is_thumbnail,
+                      gate_score, predictions_json, roi_json
+               FROM event_frames
+               WHERE event_id = ?
+               ORDER BY timestamp ASC""",
+            (event_id,)
+        ).fetchall()
+        return rows
+    finally:
+        conn.close()
+
+def update_frame_scores(frame_scores):
+    '''
+    Write per-frame gate scores after batch inference.
+
+    frame_scores: list of (gate_score, predictions_json, frame_id)
+
+    called after running the gate model on all frames in a burst
+    '''
+    conn = get_connection()
+    try:
+        conn.executemany(
+            """UPDATE event_frames
+               SET gate_score = ?, predictions_json = ?
+               WHERE frame_id = ?""",
+            frame_scores
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+def update_event_predictions(event_id, gate_label, top_prediction=None, confidence=None, predictions_json=None):
+    '''
+    Write inference results and mark event as complete.
+
+    called once per event after the gate model (and eventually the specialist model) have run. Transitions status to 'complete'
+    '''
+    conn = get_connection()
+    try:
+        conn.execute(
+            """UPDATE events
+               SET gate_label = ?,
+                   top_prediction = ?,
+                   confidence = ?,
+                   predictions_json = ?,
+                   status = 'complete'
+               WHERE event_id = ?""",
+            (gate_label, top_prediction, confidence, predictions_json, event_id)
+        )
+        conn.commit()
+    finally:
+        conn.close()

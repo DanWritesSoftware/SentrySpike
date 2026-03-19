@@ -1,0 +1,5 @@
+akida
+akida-models
+cnn2snn
+opencv-python
+numpy

@@ -62,3 +62,9 @@ class Config:
     '''
 
     database_path: str = "SentrySpike_Events.db"
+
+    '''
+    Inference
+    '''
+
+    gate_model_path: str = "SentrySpike_Inference/gate_model/Gate_Version4.fbz"
