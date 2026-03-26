@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page">
+    <header class="page-header">
+        <a href="{{ url_for('event_list') }}" class="back-link">← Events</a>
+        <h1>Motion Tuning</h1>
+        <p class="subtitle">Live parameter adjustment &mdash; stop camera_service.py before opening this page.</p>
+    </header>
+
+    <div class="tuning-layout">
+
+        <!-- ── Live feed ── -->
+        <div class="tuning-feed-wrap">
+            <img src="{{ url_for('tuning_stream') }}" class="tuning-feed" alt="Live feed">
+            <div class="view-bar">
+                <label for="view_select">View</label>
+                <select id="view_select" onchange="postParams()">
+                    <option value="bbox_vis">Bounding box</option>
+                    <option value="contours_vis">Contours</option>
+                    <option value="mask_morph">Mask &mdash; morphed</option>
+                    <option value="mask_bin">Mask &mdash; binary</option>
+                    <option value="fgmask_raw">FG mask &mdash; raw</option>
+                    <option value="gray_blur">Greyscale / blur</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- ── Controls ── -->
+        <div class="tuning-controls">
+
+            <!-- Status -->
+            <div class="status-panel">
+                <div class="status-row">
+                    <span class="status-dot" id="status_dot"></span>
+                    <span class="status-label" id="status_label">Connecting&hellip;</span>
+                </div>
+                <div class="status-meta">
+                    <span id="status_fps">–</span>
+                    <span id="status_triggers">0 triggers</span>
+                </div>
+            </div>
+
+            <!-- Sliders -->
+            <div class="param-list">
+
+                <div class="param-row">
+                    <div class="param-header">
+                        <label for="bgsub_var_threshold">MOG2 sensitivity</label>
+                        <span class="param-val" id="bgsub_var_threshold_val">{{ params.bgsub_var_threshold }}</span>
+                    </div>
+                    <input type="range" id="bgsub_var_threshold" name="bgsub_var_threshold"
+                           min="1" max="100" step="1" value="{{ params.bgsub_var_threshold }}"
+                           oninput="liveLabel(this)" onchange="postParams()">
+                    <p class="param-hint">Lower = more sensitive. Raise to cut false positives.</p>
+                </div>
+
+                <div class="param-row">
+                    <div class="param-header">
+                        <label for="motion_min_area">Min contour area (px&sup2;)</label>
+                        <span class="param-val" id="motion_min_area_val">{{ params.motion_min_area }}</span>
+                    </div>
+                    <input type="range" id="motion_min_area" name="motion_min_area"
+                           min="10" max="2000" step="10" value="{{ params.motion_min_area }}"
+                           oninput="liveLabel(this)" onchange="postParams()">
+                    <p class="param-hint">Ignore blobs smaller than this. Raise to filter noise / leaves.</p>
+                </div>
+
+                <div class="param-row">
+                    <div class="param-header">
+                        <label for="motion_confirm_frames">Confirm frames</label>
+                        <span class="param-val" id="motion_confirm_frames_val">{{ params.motion_confirm_frames }}</span>
+                    </div>
+                    <input type="range" id="motion_confirm_frames" name="motion_confirm_frames"
+                           min="1" max="10" step="1" value="{{ params.motion_confirm_frames }}"
+                           oninput="liveLabel(this)" onchange="postParams()">
+                    <p class="param-hint">Consecutive motion frames needed to trigger an event.</p>
+                </div>
+
+                <div class="param-row">
+                    <div class="param-header">
+                        <label for="bgsub_open_iters">Open iterations</label>
+                        <span class="param-val" id="bgsub_open_iters_val">{{ params.bgsub_open_iters }}</span>
+                    </div>
+                    <input type="range" id="bgsub_open_iters" name="bgsub_open_iters"
+                           min="0" max="5" step="1" value="{{ params.bgsub_open_iters }}"
+                           oninput="liveLabel(this)" onchange="postParams()">
+                    <p class="param-hint">Morphological open: removes speckle noise from the mask.</p>
+                </div>
+
+                <div class="param-row">
+                    <div class="param-header">
+                        <label for="bgsub_dilate_iters">Dilate iterations</label>
+                        <span class="param-val" id="bgsub_dilate_iters_val">{{ params.bgsub_dilate_iters }}</span>
+                    </div>
+                    <input type="range" id="bgsub_dilate_iters" name="bgsub_dilate_iters"
+                           min="0" max="5" step="1" value="{{ params.bgsub_dilate_iters }}"
+                           oninput="liveLabel(this)" onchange="postParams()">
+                    <p class="param-hint">Expands foreground blobs to connect nearby regions.</p>
+                </div>
+
+                <div class="param-row">
+                    <div class="param-header">
+                        <label for="bgsub_warmup_frames">Warmup frames</label>
+                        <span class="param-val" id="bgsub_warmup_frames_val">{{ params.bgsub_warmup_frames }}</span>
+                    </div>
+                    <input type="range" id="bgsub_warmup_frames" name="bgsub_warmup_frames"
+                           min="0" max="150" step="5" value="{{ params.bgsub_warmup_frames }}"
+                           oninput="liveLabel(this)" onchange="postParams()">
+                    <p class="param-hint">Frames to learn the background before reporting motion. Changing this resets the detector.</p>
+                </div>
+
+            </div><!-- /param-list -->
+
+            <!-- Actions -->
+            <div class="tuning-actions">
+                <button class="btn-tuning-action" onclick="resetParams()">Reset to defaults</button>
+                <button class="btn-tuning-action btn-tuning-copy" onclick="copyParams()">Copy values</button>
+            </div>
+            <pre id="copy_output" class="copy-output" style="display:none"></pre>
+
+        </div><!-- /tuning-controls -->
+    </div><!-- /tuning-layout -->
+</div>
+
+<script>
+const DEFAULTS = {{ params | tojson }};
+const PARAM_NAMES = [
+    'bgsub_var_threshold', 'motion_min_area', 'motion_confirm_frames',
+    'bgsub_open_iters', 'bgsub_dilate_iters', 'bgsub_warmup_frames'
+];
+
+function liveLabel(slider) {
+    document.getElementById(slider.id + '_val').textContent = slider.value;
+}
+
+function postParams() {
+    const body = {};
+    PARAM_NAMES.forEach(n => {
+        body[n] = parseInt(document.getElementById(n).value, 10);
+    });
+    body.view = document.getElementById('view_select').value;
+    fetch('/tuning/params', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+}
+
+function resetParams() {
+    PARAM_NAMES.forEach(n => {
+        const el = document.getElementById(n);
+        if (el && DEFAULTS[n] !== undefined) {
+            el.value = DEFAULTS[n];
+            document.getElementById(n + '_val').textContent = DEFAULTS[n];
+        }
+    });
+    postParams();
+}
+
+function copyParams() {
+    const lines = PARAM_NAMES.map(n => {
+        const v = document.getElementById(n).value;
+        return `    ${n}: int = ${v}`;
+    });
+    const out = document.getElementById('copy_output');
+    out.textContent = lines.join('\n');
+    out.style.display = 'block';
+}
+
+// Poll status every 800 ms
+function pollStatus() {
+    fetch('/tuning/status')
+        .then(r => r.json())
+        .then(s => {
+            const dot   = document.getElementById('status_dot');
+            const label = document.getElementById('status_label');
+            if (s.warmup) {
+                dot.className   = 'status-dot status-dot--warmup';
+                label.textContent = `Warming up (${s.warmup_progress})`;
+            } else if (s.motion) {
+                dot.className   = 'status-dot status-dot--motion';
+                label.textContent = 'Motion detected';
+            } else {
+                dot.className   = 'status-dot status-dot--idle';
+                label.textContent = 'Idle';
+            }
+            document.getElementById('status_fps').textContent =
+                s.fps.toFixed(1) + ' fps';
+            document.getElementById('status_triggers').textContent =
+                s.triggers + (s.triggers === 1 ? ' trigger' : ' triggers');
+        })
+        .catch(() => {});
+}
+setInterval(pollStatus, 800);
+pollStatus();
+</script>
+{% endblock %}

@@ -27,7 +27,7 @@ class Config:
     '''
     Burst decision thresholds
     '''
-    gate_threshold: float = 0.0                 # Akida poetntial: >0 = animal
+    gate_threshold: float = 3.5                 # Akida potential: scores above this are classified as animal
     confidence_threshold: float = 0.65          # Minimum aggregated confidence required to accept a burst classification
     stability_threshold: float = 0.60           # Minimum stability score (agreeing frames / total frames) required to accept a burst
     cooldown_seconds: float = 10.0              # Cooldown period after a successful event to prevent retriggering on the same animal
@@ -45,11 +45,15 @@ class Config:
     motion_morph_iterations: int = 1            # Number of dilation/erosion iterations to clean up the motion mask
     motion_pad: int = 15                        # Extra padding (pixels) added around motion bounding box for context
 
-    bgsub_warmup_frames = 30
-    bgsub_var_threshold = 16
-    bgsub_bin_thresh = 200
-    bgsub_dilate_iters = 2
-    bgsub_freeze_during_event = True
+    bgsub_warmup_frames: int = 30               # Frames to learn background before reporting motion
+    bgsub_history: int = 500                    # Number of frames used to build the background model
+    bgsub_var_threshold: int = 16               # MOG2 variance threshold; lower = more sensitive
+    bgsub_dist2_threshold: float = 400.0        # KNN distance threshold (unused when method is MOG2)
+    bgsub_detect_shadows: bool = False          # Whether to detect and mark shadows (127) in the foreground mask
+    bgsub_bin_thresh: int = 200                 # Threshold applied to fgmask to produce binary mask; excludes shadows
+    bgsub_open_iters: int = 2                   # Morphological open iterations to remove speckle noise
+    bgsub_dilate_iters: int = 2                 # Dilation iterations to connect nearby foreground regions
+    bgsub_freeze_during_event: bool = True      # Freeze background learning while motion is active
 
     '''
     Saving / Output

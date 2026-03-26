@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page">
+    <header class="page-header">
+        <div class="page-header-row">
+            <h1>SentrySpike</h1>
+            <a href="{{ url_for('tuning') }}" class="tuning-link">Motion tuning</a>
+        </div>
+        <p class="subtitle">
+            {% if events %}
+                {{ events | length }} event{{ 's' if events | length != 1 else '' }}
+                {% if active_category %} &mdash; {{ active_category | capitalize }}{% endif %}
+            {% else %}
+                No events yet
+            {% endif %}
+        </p>
+    </header>
+
+    {% if categories %}
+    <div class="filter-bar">
+        <a href="{{ url_for('event_list') }}"
+           class="filter-pill {% if not active_category %}filter-pill--active{% endif %}">
+            All
+        </a>
+        {% for cat in categories %}
+        <a href="{{ url_for('event_list', category=cat) }}"
+           class="filter-pill {% if active_category == cat %}filter-pill--active{% endif %}">
+            {{ cat | capitalize }}
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if events %}
+    <div class="card-grid">
+        {% for ev in events %}
+        <a href="{{ url_for('event_detail', event_id=ev.event_id) }}" class="card">
+
+            <div class="card-image">
+                {% if ev.thumbnail_rel %}
+                <img src="{{ url_for('captures', filename=ev.thumbnail_rel) }}"
+                     alt="Event thumbnail"
+                     loading="lazy">
+                {% endif %}
+            </div>
+
+            <div class="card-body">
+                <div class="card-top-row">
+                    {% if not ev.reviewed %}
+                    <span class="unread-dot" title="New"></span>
+                    {% endif %}
+                    <span class="prediction">
+                        {{ ev.top_prediction | capitalize if ev.top_prediction else 'Unknown' }}
+                    </span>
+                    {% if ev.status != 'complete' %}
+                    <span class="badge badge--{{ ev.status | replace('_', '-') }}">
+                        {{ ev.status | replace('_', ' ') }}
+                    </span>
+                    {% endif %}
+                </div>
+
+                {# confidence is a raw Akida gate potential (not a 0-1 probability);
+                   displayed as a score until a specialist model providing probabilities is added #}
+                {% if ev.confidence is not none %}
+                <span class="confidence">Score: {{ "%.2f" | format(ev.confidence) }}</span>
+                {% endif %}
+
+                <span class="timestamp">{{ ev.start_time | format_ts }}</span>
+            </div>
+
+        </a>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="empty-state">
+        <p>No detections recorded yet.</p>
+        <p class="empty-hint">Events will appear here once the camera service captures motion.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

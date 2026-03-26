@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page detail-page">
+
+    <a href="{{ url_for('event_list') }}" class="back-link">← All events</a>
+
+    <header class="page-header">
+        <div class="detail-title-row">
+            <h1>{{ event.top_prediction | capitalize if event.top_prediction else 'Unknown' }}</h1>
+            {% if event.status != 'complete' %}
+            <span class="badge badge--{{ event.status | replace('_', '-') }}">
+                {{ event.status | replace('_', ' ') }}
+            </span>
+            {% endif %}
+        </div>
+        <p class="subtitle">{{ event.start_time | format_ts }}</p>
+    </header>
+
+    {# ── Burst GIF ─────────────────────────────────────────── #}
+    {% if event.status == 'complete' or event.status == 'awaiting_inference' %}
+    <div class="burst-gif-wrap">
+        <img src="{{ url_for('event_gif', event_id=event.event_id) }}"
+             alt="Burst animation for event {{ event.event_id }}"
+             class="burst-gif">
+    </div>
+    {% endif %}
+
+    {# ── Stats ─────────────────────────────────────────────── #}
+    <dl class="stats-grid">
+        <div class="stat">
+            <dt>Gate score</dt>
+            <dd>{{ "%.3f" | format(event.confidence) if event.confidence is not none else '—' }}</dd>
+        </div>
+
+        {% if event.predictions %}
+        <div class="stat">
+            <dt>Stability</dt>
+            <dd>
+                {{ event.predictions.agree_count }}/{{ event.predictions.used_frames }} frames
+                ({{ "%.0f" | format(event.predictions.stability * 100) }}%)
+            </dd>
+        </div>
+        {% endif %}
+
+        <div class="stat">
+            <dt>Frames captured</dt>
+            <dd>{{ event.frame_count or '—' }}</dd>
+        </div>
+
+        <div class="stat">
+            <dt>Event ID</dt>
+            <dd class="event-id-text">{{ event.event_id }}</dd>
+        </div>
+    </dl>
+
+    {# ── Delete ────────────────────────────────────────────── #}
+    <form method="POST"
+          action="{{ url_for('event_delete', event_id=event.event_id) }}"
+          onsubmit="return confirm('Delete this event and all its frames?')">
+        <button type="submit" class="btn-delete">Delete event</button>
+    </form>
+
+</div>
+{% endblock %}

@@ -16,10 +16,14 @@ import database as db
 CFG = Config()
 
 
-def analyze_burst_frames(frames_bgr, model_ak, *, roi_bbox=None):
+def analyze_burst_frames(frames_bgr, model_ak):
     '''
-    Runs inference over a list of frames (optionally cropped to ROI),
-    aggregates predictions, and computes stability metrics.
+    Runs inference over a list of full frames, aggregates predictions,
+    and computes stability metrics.
+
+    Full frames are passed to the model because the gate model was trained on
+    full-frame inputs (center-cropped to square, resized to 224x224).  The ROI
+    is used only for the GIF overlay in the web service, not for inference.
 
     Returns a result dict with ok, final_label, final_conf, stability, used_frames.
     '''
@@ -29,10 +33,6 @@ def analyze_burst_frames(frames_bgr, model_ak, *, roi_bbox=None):
     top1_labels = []    # per-frame label for stability calculation
 
     for frame in frames_bgr:
-        if roi_bbox is not None:
-            x, y, w, h = roi_bbox
-            frame = frame[y:y + h, x:x + w]
-
         x_in = preprocess_frame_for_akidanet(frame, CFG.image_size)
         logits = model_ak.predict(x_in)
 
@@ -55,11 +55,20 @@ def analyze_burst_frames(frames_bgr, model_ak, *, roi_bbox=None):
     agree_count = sum(1 for l in top1_labels if l == final_label)
     stability = agree_count / len(top1_labels)
 
-    print(
-        f"[BURST RESULT] {final_label} "
-        f"({final_conf:.2f}) "
-        f"stability {agree_count}/{len(top1_labels)}"
-    )
+    # Reject low-stability animal calls — if fewer than stability_threshold
+    # of frames agree, the burst is too inconsistent to trust as a real detection.
+    if final_label == "animal" and stability < CFG.stability_threshold:
+        print(
+            f"[BURST RESULT] animal overridden -> empty "
+            f"(stability {agree_count}/{len(top1_labels)} < {CFG.stability_threshold})"
+        )
+        final_label = "empty"
+    else:
+        print(
+            f"[BURST RESULT] {final_label} "
+            f"({final_conf:.2f}) "
+            f"stability {agree_count}/{len(top1_labels)}"
+        )
 
     return {
         "ok": True,
@@ -83,24 +92,20 @@ def process_event(event, model_ak):
         print(f"[Inference] No frames for {event_id}, skipping")
         return
 
-    # Load frames from disk; grab ROI from the first frame that has one
+    # Load frames from disk
     frames_bgr = []
-    roi_bbox = None
     for row in frame_rows:
         img = cv2.imread(row["image_path"])
         if img is None:
             print(f"[Inference] Could not load {row['image_path']}, skipping frame")
             continue
         frames_bgr.append(img)
-        if roi_bbox is None and row["roi_json"]:
-            roi_data = json.loads(row["roi_json"])
-            roi_bbox = tuple(roi_data["roi_bbox"]) if roi_data["roi_bbox"] else None
 
     if not frames_bgr:
         print(f"[Inference] No loadable frames for {event_id}, skipping")
         return
 
-    result = analyze_burst_frames(frames_bgr, model_ak, roi_bbox=roi_bbox)
+    result = analyze_burst_frames(frames_bgr, model_ak)
     if not result["ok"]:
         return
 

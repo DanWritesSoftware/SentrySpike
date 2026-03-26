@@ -242,3 +242,110 @@ def update_event_predictions(event_id, gate_label, top_prediction=None, confiden
         conn.commit()
     finally:
         conn.close()
+
+'''
+Flask Web Service
+'''
+
+def get_all_events(category=None):
+    '''
+    Get all events ordered by start_time DESC, with thumbnail path joined.
+
+    Returns one row per event; includes the thumbnail image_path if one
+    was selected by close_event(), otherwise thumbnail_path is NULL.
+    Pass category to filter by top_prediction (case-insensitive).
+    '''
+    conn = get_connection()
+    try:
+        if category:
+            rows = conn.execute(
+                """SELECT e.event_id, e.start_time, e.status,
+                          e.top_prediction, e.confidence, e.gate_label,
+                          e.frame_count, e.starred, e.reviewed,
+                          f.image_path AS thumbnail_path
+                   FROM events e
+                   LEFT JOIN event_frames f
+                       ON f.event_id = e.event_id AND f.is_thumbnail = 1
+                   WHERE LOWER(e.top_prediction) = LOWER(?)
+                   ORDER BY e.start_time DESC""",
+                (category,)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT e.event_id, e.start_time, e.status,
+                          e.top_prediction, e.confidence, e.gate_label,
+                          e.frame_count, e.starred, e.reviewed,
+                          f.image_path AS thumbnail_path
+                   FROM events e
+                   LEFT JOIN event_frames f
+                       ON f.event_id = e.event_id AND f.is_thumbnail = 1
+                   ORDER BY e.start_time DESC"""
+            ).fetchall()
+        return rows
+    finally:
+        conn.close()
+
+def get_distinct_predictions():
+    '''
+    Return a sorted list of distinct non-null top_prediction values.
+    Used to populate the category filter on the event list page.
+    '''
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """SELECT DISTINCT top_prediction
+               FROM events
+               WHERE top_prediction IS NOT NULL
+               ORDER BY top_prediction ASC"""
+        ).fetchall()
+        return [row['top_prediction'] for row in rows]
+    finally:
+        conn.close()
+
+def mark_reviewed(event_id):
+    '''
+    Set reviewed=1 on an event the first time its detail page is visited.
+    '''
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE events SET reviewed = 1 WHERE event_id = ?",
+            (event_id,)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+def delete_event(event_id):
+    '''
+    Delete an event and all its frames from the database.
+
+    Does not touch files on disk — the caller is responsible for removing
+    the captures directory if desired.
+    '''
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM event_frames WHERE event_id = ?", (event_id,))
+        conn.execute("DELETE FROM events WHERE event_id = ?", (event_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+def get_event(event_id):
+    '''
+    Get a single event by event_id for the detail view.
+
+    Returns None if not found.
+    '''
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            """SELECT event_id, start_time, end_time, status,
+                      top_prediction, confidence, gate_label,
+                      frame_count, predictions_json, starred, reviewed
+               FROM events WHERE event_id = ?""",
+            (event_id,)
+        ).fetchone()
+        return row
+    finally:
+        conn.close()

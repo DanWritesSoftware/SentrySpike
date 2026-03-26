@@ -119,6 +119,7 @@ def main():
             if consecutive_motion >= CFG.motion_confirm_frames:
                 trigger_hits = consecutive_motion
                 consecutive_motion = 0
+                trigger_bbox = motion_union   # save before reset; used as ROI fallback below
                 motion_union = None
 
                 # Generate event ID and open DB record
@@ -147,10 +148,20 @@ def main():
                     morph_iters=CFG.motion_morph_iterations,
                     pad=CFG.motion_pad
                     )
+                # Prefer the bbox derived from the burst itself; fall back to the
+                # bbox that triggered the event for cases where the subject has
+                # already left the frame by the time the burst is captured.
+                # burst_bbox is already padded by bbox_over_burst, so pass pad=0.
+                # trigger_bbox comes raw from the detector, so it still needs padding.
+                H, W = frames[0].shape[:2]
                 if burst_bbox is not None:
-                    H, W = frames[0].shape[:2]
                     roi = MotionDetect.square_bbox_in_bounds(
                         burst_bbox[0], burst_bbox[1], burst_bbox[2], burst_bbox[3],
+                        W, H, pad=0
+                        )
+                elif trigger_bbox is not None:
+                    roi = MotionDetect.square_bbox_in_bounds(
+                        trigger_bbox[0], trigger_bbox[1], trigger_bbox[2], trigger_bbox[3],
                         W, H, pad=CFG.motion_pad
                         )
                 else:

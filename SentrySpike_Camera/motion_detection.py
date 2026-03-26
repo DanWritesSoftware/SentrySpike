@@ -340,7 +340,7 @@ class DiffMotionDetector:
             diff_thresh=self.CFG.motion_difference_threshold,
             min_area=self.CFG.motion_min_area,
             blur_ksize=getattr(self.CFG, "motion_blur_ksize", 9),
-            morph_iters=getattr(self.CFG, "motion_morph_iters", 2)
+            morph_iters=getattr(self.CFG, "motion_morph_iterations", 2)
             )
         return bbox, dbg
 
