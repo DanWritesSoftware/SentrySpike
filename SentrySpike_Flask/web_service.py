@@ -273,7 +273,7 @@ def event_list():
     for row in rows:
         ev = dict(row)
         if ev['thumbnail_path']:
-            ev['thumbnail_rel'] = os.path.relpath(ev['thumbnail_path'], CAPTURES_DIR)
+            ev['thumbnail_rel'] = os.path.relpath(ev['thumbnail_path'], CAPTURES_DIR).replace('\\', '/')
         else:
             ev['thumbnail_rel'] = None
         events.append(ev)
