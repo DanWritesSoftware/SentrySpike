@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page">
+    <header class="page-header">
+        <div class="page-header-row">
+            <h1><a href="{{ url_for('event_list') }}">SentrySpike</a></h1>
+            <a href="{{ url_for('tuning') }}" class="tuning-link">Motion tuning</a>
+            <a href="{{ url_for('info_page') }}" class="tuning-link tuning-link--active">System info</a>
+        </div>
+        <p class="subtitle">{{ system.hostname }} &mdash; {{ system.ip }}</p>
+    </header>
+
+    <h2 class="info-section-heading">System</h2>
+    <dl class="stats-grid stats-grid--3">
+        <div class="stat">
+            <dt>Uptime</dt>
+            <dd>{{ system.uptime or '—' }}</dd>
+        </div>
+        <div class="stat">
+            <dt>CPU Temp</dt>
+            <dd>{{ system.cpu_temp or '—' }}</dd>
+        </div>
+        <div class="stat">
+            <dt>Version</dt>
+            <dd class="mono">{{ system.version }}</dd>
+        </div>
+        <div class="stat">
+            <dt>Memory</dt>
+            <dd>
+                {% if system.mem_pct is not none %}
+                    {{ system.mem_used }} / {{ system.mem_total }}
+                    <span class="stat-sub">{{ system.mem_pct }}% used</span>
+                {% else %}
+                    —
+                {% endif %}
+            </dd>
+        </div>
+        <div class="stat">
+            <dt>Disk</dt>
+            <dd>
+                {% if system.disk_pct is not none %}
+                    {{ system.disk_used }} / {{ system.disk_total }}
+                    <span class="stat-sub">{{ system.disk_pct }}% used</span>
+                {% else %}
+                    —
+                {% endif %}
+            </dd>
+        </div>
+    </dl>
+
+    <h2 class="info-section-heading">Services</h2>
+    <dl class="stats-grid stats-grid--3">
+        {% for name, status in system.services.items() %}
+        <div class="stat">
+            <dt>{{ name }}</dt>
+            <dd class="service-status">
+                <span class="status-dot
+                    {% if status == 'active' %}status-dot--motion
+                    {% elif status == 'unknown' %}status-dot--warmup
+                    {% else %}{% endif %}"></span>
+                {{ status }}
+            </dd>
+        </div>
+        {% endfor %}
+    </dl>
+
+    <h2 class="info-section-heading">Database</h2>
+    <dl class="stats-grid">
+        <div class="stat">
+            <dt>Total Events</dt>
+            <dd>{{ db_stats.total_events }}</dd>
+        </div>
+        <div class="stat">
+            <dt>Complete</dt>
+            <dd>{{ db_stats.complete }}</dd>
+        </div>
+        <div class="stat">
+            <dt>Pending Inference</dt>
+            <dd>{{ db_stats.pending }}</dd>
+        </div>
+        <div class="stat">
+            <dt>Total Frames</dt>
+            <dd>{{ db_stats.total_frames }}</dd>
+        </div>
+        <div class="stat">
+            <dt>Captures Size</dt>
+            <dd>{{ system.captures_size }}</dd>
+        </div>
+        <div class="stat">
+            <dt>Database Size</dt>
+            <dd>{{ system.db_size }}</dd>
+        </div>
+    </dl>
+</div>
+{% endblock %}

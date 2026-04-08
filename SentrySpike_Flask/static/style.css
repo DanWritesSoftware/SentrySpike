@@ -507,6 +507,50 @@ input[type=range] {
     color: #f0c0c0;
 }
 
+/* ── Info page ────────────────────────────────────────────── */
+.tuning-link--active {
+    color: #7986a8;
+}
+
+.info-section-heading {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #4a5270;
+    margin: 2rem 0 0.6rem;
+}
+
+.stats-grid--3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 600px) {
+    .stats-grid--3 {
+        grid-template-columns: 1fr;
+    }
+}
+
+.stat-sub {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: #6b7591;
+    margin-top: 0.1rem;
+}
+
+.service-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.mono {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.88rem;
+}
+
+/* ── Event ID ─────────────────────────────────────────────── */
 .event-id-text {
     font-size: 0.8rem !important;
     font-weight: 400 !important;

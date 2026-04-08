@@ -2,6 +2,8 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import shutil
+import socket
+import subprocess
 from flask import (Flask, render_template, send_from_directory, redirect,
                    url_for, g, abort, jsonify, request, Response)
 from datetime import datetime
@@ -22,6 +24,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CAPTURES_DIR = os.path.join(PROJECT_ROOT, CFG.save_directory)
 
 app = Flask(__name__)
+db.init_db()
 
 
 '''
@@ -436,6 +439,139 @@ def captures(filename):
     hands them off via send_from_directory.
     '''
     return send_from_directory(CAPTURES_DIR, filename)
+
+
+'''
+System Info Page
+'''
+
+def _fmt_bytes(n):
+    for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
+        if n < 1024 or unit == 'TB':
+            return f'{n:.1f} {unit}'
+        n /= 1024
+
+
+def _get_system_info():
+    info = {}
+
+    info['hostname'] = socket.gethostname()
+
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        info['ip'] = s.getsockname()[0]
+        s.close()
+    except Exception:
+        info['ip'] = 'unavailable'
+
+    try:
+        with open('/proc/uptime') as f:
+            total_seconds = int(float(f.read().split()[0]))
+        days, rem = divmod(total_seconds, 86400)
+        hours, rem = divmod(rem, 3600)
+        minutes = rem // 60
+        parts = []
+        if days:
+            parts.append(f'{days}d')
+        if hours:
+            parts.append(f'{hours}h')
+        parts.append(f'{minutes}m')
+        info['uptime'] = ' '.join(parts)
+    except Exception:
+        info['uptime'] = None
+
+    try:
+        mem = {}
+        with open('/proc/meminfo') as f:
+            for line in f:
+                k, v = line.split(':')
+                mem[k.strip()] = int(v.split()[0])
+        total = mem['MemTotal'] * 1024
+        used = (mem['MemTotal'] - mem['MemAvailable']) * 1024
+        info['mem_used'] = _fmt_bytes(used)
+        info['mem_total'] = _fmt_bytes(total)
+        info['mem_pct'] = round(used / total * 100)
+    except Exception:
+        info['mem_used'] = info['mem_total'] = info['mem_pct'] = None
+
+    try:
+        usage = shutil.disk_usage(PROJECT_ROOT)
+        info['disk_used'] = _fmt_bytes(usage.used)
+        info['disk_total'] = _fmt_bytes(usage.total)
+        info['disk_pct'] = round(usage.used / usage.total * 100)
+    except Exception:
+        info['disk_used'] = info['disk_total'] = info['disk_pct'] = None
+
+    try:
+        with open('/sys/class/thermal/thermal_zone0/temp') as f:
+            info['cpu_temp'] = f'{int(f.read().strip()) / 1000:.1f} °C'
+    except Exception:
+        info['cpu_temp'] = None
+
+    service_names = {
+        'sentryspike-camera':    'Camera',
+        'sentryspike-inference': 'Inference',
+        'sentryspike-flask':     'Web UI',
+    }
+    info['services'] = {}
+    for svc, label in service_names.items():
+        try:
+            result = subprocess.run(
+                ['systemctl', 'is-active', f'{svc}.service'],
+                capture_output=True, text=True, timeout=2
+            )
+            status = result.stdout.strip()
+        except Exception:
+            status = 'unknown'
+        info['services'][label] = status
+
+    try:
+        result = subprocess.run(
+            ['git', '-C', PROJECT_ROOT, 'rev-parse', '--short', 'HEAD'],
+            capture_output=True, text=True, timeout=2
+        )
+        info['version'] = result.stdout.strip() or 'unknown'
+    except Exception:
+        info['version'] = 'unknown'
+
+    captures_size = 0
+    for dirpath, _, filenames in os.walk(CAPTURES_DIR):
+        for fname in filenames:
+            try:
+                captures_size += os.path.getsize(os.path.join(dirpath, fname))
+            except OSError:
+                pass
+    info['captures_size'] = _fmt_bytes(captures_size)
+
+    try:
+        db_path = os.path.join(PROJECT_ROOT, CFG.database_path)
+        info['db_size'] = _fmt_bytes(os.path.getsize(db_path))
+    except OSError:
+        info['db_size'] = 'unavailable'
+
+    return info
+
+
+@app.route('/info')
+def info_page():
+    '''System info page — device status, service health, and database stats.'''
+    system = _get_system_info()
+
+    conn = get_db()
+    total_events  = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+    complete      = conn.execute("SELECT COUNT(*) FROM events WHERE status='complete'").fetchone()[0]
+    pending       = conn.execute("SELECT COUNT(*) FROM events WHERE status='awaiting_inference'").fetchone()[0]
+    total_frames  = conn.execute("SELECT COUNT(*) FROM event_frames").fetchone()[0]
+
+    db_stats = {
+        'total_events':  total_events,
+        'complete':      complete,
+        'pending':       pending,
+        'total_frames':  total_frames,
+    }
+
+    return render_template('info.html', system=system, db_stats=db_stats)
 
 
 if __name__ == '__main__':
