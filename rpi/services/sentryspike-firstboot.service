@@ -1,0 +1,13 @@
+[Unit]
+Description=SentrySpike First Boot / WiFi Setup
+# Runs before normal services; if WiFi is not configured, this takes over
+After=local-fs.target
+Before=network-online.target sentryspike-camera.service sentryspike-inference.service sentryspike-flask.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/sentryspike/rpi/scripts/firstboot.sh
+
+[Install]
+WantedBy=multi-user.target

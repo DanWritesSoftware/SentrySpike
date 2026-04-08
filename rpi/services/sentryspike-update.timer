@@ -1,0 +1,10 @@
+[Unit]
+Description=SentrySpike Nightly Update Check
+
+[Timer]
+OnCalendar=03:00
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

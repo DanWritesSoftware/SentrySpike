@@ -1,0 +1,14 @@
+[Unit]
+Description=SentrySpike Camera Service
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/sentryspike
+ExecStart=/opt/sentryspike/venv/bin/python SentrySpike_Camera/camera_service.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

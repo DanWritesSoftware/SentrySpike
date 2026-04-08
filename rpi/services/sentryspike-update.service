@@ -1,0 +1,9 @@
+[Unit]
+Description=SentrySpike Update Check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+ExecStart=/opt/sentryspike/rpi/scripts/update.sh
