@@ -13,7 +13,6 @@ class Config:
     '''
     
     motion_confirm_frames: int = 3              # How many consecutive motion hits required
-    motion_cooldown_seconds: int = 15           # How many seconds to wait before triggering a new detection
 
     '''
     Burst capture (event confirmation)
@@ -28,8 +27,8 @@ class Config:
     Burst decision thresholds
     '''
     gate_threshold: float = 3.5                 # Akida potential: scores above this are classified as animal
-    confidence_threshold: float = 0.65          # Minimum aggregated confidence required to accept a burst classification
     stability_threshold: float = 0.60           # Minimum stability score (agreeing frames / total frames) required to accept a burst
+    heavy_confidence_threshold: float = 0.40    # Minimum averaged softmax confidence for the heavy model to commit to a species label; below this falls back to "animal"
     cooldown_seconds: float = 10.0              # Cooldown period after a successful event to prevent retriggering on the same animal
 
     '''
@@ -72,3 +71,4 @@ class Config:
     '''
 
     gate_model_path: str = "SentrySpike_Inference/gate_model/Gate_Version4.fbz"
+    heavy_model_path: str = "SentrySpike_Inference/heavy_model/model_akida.fbz"

@@ -391,11 +391,7 @@ def event_delete(event_id):
     if row is None:
         abort(404)
 
-    db.delete_event(event_id)
-
-    event_dir = os.path.join(CAPTURES_DIR, event_id)
-    if os.path.isdir(event_dir):
-        shutil.rmtree(event_dir)
+    db.delete_event_with_files(event_id)
 
     return redirect(url_for('event_list'))
 

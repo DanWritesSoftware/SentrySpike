@@ -331,6 +331,32 @@ def delete_event(event_id):
     finally:
         conn.close()
 
+def delete_event_with_files(event_id):
+    '''
+    Delete an event from the database and remove its captures directory from disk.
+
+    Retrieves frame paths first, then deletes the parent directory (captures/{event_id}/),
+    then removes DB records. Safe to call if the directory is already missing.
+    '''
+    import os, shutil
+
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT image_path FROM event_frames WHERE event_id = ?",
+            (event_id,)
+        ).fetchall()
+    finally:
+        conn.close()
+
+    if rows:
+        # All frames share the same parent directory — derive it from any frame path
+        capture_dir = os.path.dirname(rows[0]["image_path"])
+        if os.path.isdir(capture_dir):
+            shutil.rmtree(capture_dir)
+
+    delete_event(event_id)
+
 def get_event(event_id):
     '''
     Get a single event by event_id for the detail view.

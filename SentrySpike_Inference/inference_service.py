@@ -15,74 +15,151 @@ import database as db
 
 CFG = Config()
 
+HEAVY_LABEL_MAP = {
+    0: "canid",
+    1: "felid",
+    2: "deer",
+    3: "rabbit",
+    4: "raccoon",
+    5: "bird",
+    6: "opossum",
+    7: "small_mammal",
+}
 
-def analyze_burst_frames(frames_bgr, model_ak):
+
+def _softmax(x):
+    e = np.exp(x - np.max(x))
+    return e / e.sum()
+
+
+def run_gate(frames_bgr, model_gate):
     '''
-    Runs inference over a list of full frames, aggregates predictions,
-    and computes stability metrics.
+    Run the gate model over a burst and decide animal vs empty.
 
-    Full frames are passed to the model because the gate model was trained on
-    full-frame inputs (center-cropped to square, resized to 224x224).  The ROI
-    is used only for the GIF overlay in the web service, not for inference.
-
-    Returns a result dict with ok, final_label, final_conf, stability, used_frames.
+    Returns a dict with ok, final_label, final_conf, stability, agree_count, used_frames.
+    The gate model outputs a single scalar potential per frame; scores above gate_threshold
+    are classified as animal.
     '''
-    print("[Analysiing Frames...]")
+    print("[Gate] Analysing frames...")
 
-    outputs = []        # raw scalar gate potential per frame
-    top1_labels = []    # per-frame label for stability calculation
+    outputs = []
+    top1_labels = []
 
     for frame in frames_bgr:
         x_in = preprocess_frame_for_akidanet(frame, CFG.image_size)
-        logits = model_ak.predict(x_in)
+        logits = model_gate.predict(x_in)
 
         v = np.squeeze(logits)
         if v.ndim != 0:
-            print(f"[Burst Analysis] Unexpected logits shape: {v.shape}")
+            print(f"[Gate] Unexpected logits shape: {v.shape}, skipping frame")
             continue
 
-        outputs.append(float(v))
-        top1_labels.append("animal" if float(v) > 0.0 else "empty")
+        score = float(v)
+        outputs.append(score)
+        top1_labels.append("animal" if score > 0.0 else "empty")
 
     if not outputs:
-        print("[Burst Analysis] No usable frames")
+        print("[Gate] No usable frames")
         return {"ok": False, "used_frames": 0}
 
-    agg = np.mean(outputs)
+    agg = float(np.mean(outputs))
     final_label = "animal" if agg > CFG.gate_threshold else "empty"
-    final_conf = float(agg)
 
     agree_count = sum(1 for l in top1_labels if l == final_label)
     stability = agree_count / len(top1_labels)
 
-    # Reject low-stability animal calls — if fewer than stability_threshold
-    # of frames agree, the burst is too inconsistent to trust as a real detection.
     if final_label == "animal" and stability < CFG.stability_threshold:
         print(
-            f"[BURST RESULT] animal overridden -> empty "
+            f"[Gate] animal overridden -> empty "
             f"(stability {agree_count}/{len(top1_labels)} < {CFG.stability_threshold})"
         )
         final_label = "empty"
     else:
         print(
-            f"[BURST RESULT] {final_label} "
-            f"({final_conf:.2f}) "
+            f"[Gate] {final_label} "
+            f"(agg={agg:.2f}) "
             f"stability {agree_count}/{len(top1_labels)}"
         )
 
     return {
         "ok": True,
         "final_label": final_label,
-        "final_conf": final_conf,
+        "final_conf": agg,
         "stability": stability,
         "agree_count": agree_count,
         "used_frames": len(outputs),
     }
 
 
-def process_event(event, model_ak):
+def run_heavy(frames_bgr, model_heavy):
     '''
-    Load frames for one event, run inference, and write results back to the DB.
+    Run the heavy species-classification model over a burst.
+
+    Each frame produces a softmax distribution over 8 classes. Probabilities are
+    averaged across frames, then argmax gives the top prediction.
+
+    Returns a dict with ok, top_prediction, confidence, class_scores, used_frames.
+    '''
+    print("[Heavy] Classifying species...")
+
+    per_frame_probs = []
+
+    for frame in frames_bgr:
+        x_in = preprocess_frame_for_akidanet(frame, CFG.image_size)
+        logits = model_heavy.predict(x_in)
+
+        v = np.squeeze(logits)
+        if v.ndim != 1 or len(v) != len(HEAVY_LABEL_MAP):
+            print(f"[Heavy] Unexpected output shape: {v.shape}, skipping frame")
+            continue
+
+        per_frame_probs.append(_softmax(v.astype(np.float32)))
+
+    if not per_frame_probs:
+        print("[Heavy] No usable frames")
+        return {"ok": False, "used_frames": 0}
+
+    mean_probs = np.mean(per_frame_probs, axis=0)
+    top_idx = int(np.argmax(mean_probs))
+    top_label = HEAVY_LABEL_MAP[top_idx]
+    top_conf = float(mean_probs[top_idx])
+
+    class_scores = {HEAVY_LABEL_MAP[i]: float(mean_probs[i]) for i in range(len(HEAVY_LABEL_MAP))}
+
+    if top_conf < CFG.heavy_confidence_threshold:
+        print(
+            f"[Heavy] low confidence ({top_conf:.2%} < {CFG.heavy_confidence_threshold:.0%}) "
+            f"— falling back to 'animal'"
+        )
+        return {
+            "ok": True,
+            "top_prediction": "animal",
+            "confidence": top_conf,
+            "class_scores": class_scores,
+            "used_frames": len(per_frame_probs),
+            "low_confidence": True,
+        }
+
+    print(f"[Heavy] {top_label} ({top_conf:.2%}) from {len(per_frame_probs)} frames")
+
+    return {
+        "ok": True,
+        "top_prediction": top_label,
+        "confidence": top_conf,
+        "class_scores": class_scores,
+        "used_frames": len(per_frame_probs),
+        "low_confidence": False,
+    }
+
+
+def process_event(event, model_gate, model_heavy):
+    '''
+    Two-stage inference pipeline for one event:
+      1. Gate model  — animal vs empty
+         - empty:  delete frames from disk and remove the event from the DB
+         - animal: proceed to stage 2
+      2. Heavy model — species classification
+         - writes results back to the DB and marks the event complete
     '''
     event_id = event["event_id"]
     print(f"[Inference] Processing event {event_id}")
@@ -92,7 +169,6 @@ def process_event(event, model_ak):
         print(f"[Inference] No frames for {event_id}, skipping")
         return
 
-    # Load frames from disk
     frames_bgr = []
     for row in frame_rows:
         img = cv2.imread(row["image_path"])
@@ -105,29 +181,64 @@ def process_event(event, model_ak):
         print(f"[Inference] No loadable frames for {event_id}, skipping")
         return
 
-    result = analyze_burst_frames(frames_bgr, model_ak)
-    if not result["ok"]:
+    # --- Stage 1: Gate ---
+    gate = run_gate(frames_bgr, model_gate)
+    if not gate["ok"]:
         return
 
-    # Write per-frame gate scores
+    if gate["final_label"] == "empty":
+        print(f"[Inference] Event {event_id} is empty — deleting")
+        db.delete_event_with_files(event_id)
+        return
+
+    # Write per-frame gate scores now that we know it's worth keeping
     frame_scores = [
-        (result["final_conf"], None, row["frame_id"])
-        for row in frame_rows
+        (outputs_score, None, row["frame_id"])
+        for outputs_score, row in zip(
+            # re-derive per-frame scores: we only have the aggregate, so store it uniformly
+            [gate["final_conf"]] * len(frame_rows),
+            frame_rows,
+        )
     ]
     db.update_frame_scores(frame_scores)
 
-    # Write event-level results and mark complete
+    # --- Stage 2: Heavy model ---
+    heavy = run_heavy(frames_bgr, model_heavy)
+    if not heavy["ok"]:
+        # Heavy model failed — still mark complete using gate label so it isn't stuck
+        print(f"[Inference] Heavy model failed for {event_id}, storing gate result only")
+        db.update_event_predictions(
+            event_id,
+            gate_label=1,
+            top_prediction="animal",
+            confidence=gate["final_conf"],
+            predictions_json=json.dumps({
+                "gate": gate,
+                "heavy": None,
+            })
+        )
+        return
+
     db.update_event_predictions(
         event_id,
-        gate_label=1 if result["final_label"] == "animal" else 0,
-        top_prediction=result["final_label"],
-        confidence=result["final_conf"],
+        gate_label=1,
+        top_prediction=heavy["top_prediction"],
+        confidence=heavy["confidence"],
         predictions_json=json.dumps({
-            "final_label": result["final_label"],
-            "final_conf":  result["final_conf"],
-            "stability":   result["stability"],
-            "agree_count": result["agree_count"],
-            "used_frames": result["used_frames"],
+            "gate": {
+                "final_label": gate["final_label"],
+                "final_conf":  gate["final_conf"],
+                "stability":   gate["stability"],
+                "agree_count": gate["agree_count"],
+                "used_frames": gate["used_frames"],
+            },
+            "heavy": {
+                "top_prediction":  heavy["top_prediction"],
+                "confidence":      heavy["confidence"],
+                "class_scores":    heavy["class_scores"],
+                "used_frames":     heavy["used_frames"],
+                "low_confidence":  heavy["low_confidence"],
+            },
         })
     )
 
@@ -137,17 +248,25 @@ def main():
 
     print("Loading gate model...")
     try:
-        model_ak = akida.Model(CFG.gate_model_path)
+        model_gate = akida.Model(CFG.gate_model_path)
     except Exception as e:
         print(f"Gate model loading failed ({e})")
+        raise SystemExit
+
+    print("Loading heavy model...")
+    try:
+        model_heavy = akida.Model(CFG.heavy_model_path)
+    except Exception as e:
+        print(f"Heavy model loading failed ({e})")
         raise SystemExit
 
     try:
         hw_list = devices()
         if hw_list:
             hw = hw_list[0]
-            print(f"Mapping to hardware: {hw.version}")
-            model_ak.map(hw)
+            print(f"Mapping models to hardware: {hw.version}")
+            model_gate.map(hw)
+            model_heavy.map(hw)
         else:
             print("No Akida hardware detected; running on CPU backend.")
     except Exception as e:
@@ -157,7 +276,7 @@ def main():
     while True:
         pending = db.get_pending_events()
         for event in pending:
-            process_event(event, model_ak)
+            process_event(event, model_gate, model_heavy)
         time.sleep(2)
 
 

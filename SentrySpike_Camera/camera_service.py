@@ -137,6 +137,7 @@ def main():
                     )
                 if len(frames) < 2:
                     print("[Burst Capture] Not enough frames captured.")
+                    db.delete_event(event_id)
                     continue
 
                 # Compute motion bbox over burst, make ROI square for downstream use
