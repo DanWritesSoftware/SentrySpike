@@ -27,20 +27,57 @@
     {% endif %}
 
     {# ── Stats ─────────────────────────────────────────────── #}
+    {% set gate = event.predictions.gate if event.predictions and event.predictions.gate is defined else None %}
+    {% set heavy = event.predictions.heavy if event.predictions and event.predictions.heavy is defined else None %}
+
     <dl class="stats-grid">
+
+        {# Gate result #}
         <div class="stat">
             <dt>Gate score</dt>
-            <dd>{{ "%.3f" | format(event.confidence) if event.confidence is not none else '—' }}</dd>
+            <dd>{{ "%.3f" | format(gate.final_conf) if gate else '—' }}</dd>
         </div>
 
-        {% if event.predictions %}
+        {% if gate %}
         <div class="stat">
-            <dt>Stability</dt>
+            <dt>Gate stability</dt>
             <dd>
-                {{ event.predictions.agree_count }}/{{ event.predictions.used_frames }} frames
-                ({{ "%.0f" | format(event.predictions.stability * 100) }}%)
+                {{ gate.agree_count }}/{{ gate.used_frames }} frames
+                ({{ "%.0f" | format(gate.stability * 100) }}%)
             </dd>
         </div>
+        {% endif %}
+
+        {# Heavy model result #}
+        {% if heavy %}
+        <div class="stat">
+            <dt>Species confidence</dt>
+            <dd>
+                {{ "%.1f" | format(heavy.confidence * 100) }}%
+                {% if heavy.low_confidence %}
+                <span class="badge badge--low-conf" title="Below confidence threshold — label set to 'animal'">low confidence</span>
+                {% endif %}
+            </dd>
+        </div>
+
+        {% if heavy.class_scores %}
+        <div class="stat stat--wide">
+            <dt>Class scores</dt>
+            <dd>
+                <ul class="class-score-list">
+                {% for label, score in heavy.class_scores.items() | sort(attribute='1', reverse=True) %}
+                    <li class="{{ 'top-class' if label == heavy.top_prediction }}">
+                        {{ label | replace('_', ' ') | capitalize }}
+                        <span class="score-bar-wrap">
+                            <span class="score-bar" style="width: {{ "%.0f" | format(score * 100) }}%"></span>
+                        </span>
+                        {{ "%.1f" | format(score * 100) }}%
+                    </li>
+                {% endfor %}
+                </ul>
+            </dd>
+        </div>
+        {% endif %}
         {% endif %}
 
         <div class="stat">
@@ -52,6 +89,7 @@
             <dt>Event ID</dt>
             <dd class="event-id-text">{{ event.event_id }}</dd>
         </div>
+
     </dl>
 
     {# ── Delete ────────────────────────────────────────────── #}

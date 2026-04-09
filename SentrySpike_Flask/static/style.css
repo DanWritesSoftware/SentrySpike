@@ -298,6 +298,60 @@ a {
     color: #e8eaf6;
 }
 
+/* ── Detail page extras ───────────────────────────────────── */
+.stat--wide {
+    grid-column: 1 / -1;
+}
+
+.badge--low-conf {
+    background-color: #2a1a00;
+    color: #d4860a;
+    margin-left: 0.4em;
+    vertical-align: middle;
+}
+
+.class-score-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-weight: 400;
+    font-size: 0.9rem;
+}
+
+.class-score-list li {
+    display: grid;
+    grid-template-columns: 9rem 1fr 3rem;
+    align-items: center;
+    gap: 0.6rem;
+    color: #9ba3bf;
+}
+
+.class-score-list li.top-class {
+    color: #e8eaf6;
+    font-weight: 600;
+}
+
+.score-bar-wrap {
+    background: #0f1624;
+    border-radius: 3px;
+    height: 6px;
+    overflow: hidden;
+}
+
+.score-bar {
+    display: block;
+    height: 100%;
+    background: #3a6fd8;
+    border-radius: 3px;
+}
+
+.class-score-list li.top-class .score-bar {
+    background: #00c878;
+}
+
 /* ── Tuning page ──────────────────────────────────────────── */
 .tuning-layout {
     display: grid;
