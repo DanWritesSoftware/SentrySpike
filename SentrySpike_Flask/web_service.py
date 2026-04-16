@@ -144,6 +144,9 @@ def _make_tuning_detector(params):
     return BgSubMotionDetector(cfg_ns)
 
 
+TUNING_FLAG = os.path.join(PROJECT_ROOT, '.tuning_active')
+
+
 def _tuning_generate():
     '''
     MJPEG frame generator for /tuning/stream.
@@ -153,6 +156,9 @@ def _tuning_generate():
     '''
     import cv2
     import numpy as np
+
+    open(TUNING_FLAG, 'w').close()
+    time.sleep(0.5)  # give camera_service time to release the camera
 
     cap = cv2.VideoCapture(CFG.camera_index)
     if not cap.isOpened():
@@ -252,6 +258,10 @@ def _tuning_generate():
 
     finally:
         cap.release()
+        try:
+            os.remove(TUNING_FLAG)
+        except OSError:
+            pass
 
 
 '''

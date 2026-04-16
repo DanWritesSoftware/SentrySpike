@@ -15,6 +15,8 @@ import database as db                               # Event and frame persistenc
 CFG = Config()                                      # Instantiate the configuration with default values
 detector = MotionDetect.create_motion_detector(CFG) # Motion detector needs persistance
 
+TUNING_FLAG = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.tuning_active')
+
 
 def capture_burst_frames(cap, *, n_frames, sleep_s):
     '''
@@ -82,6 +84,19 @@ def main():
 
     try:
         while True:
+            if os.path.exists(TUNING_FLAG):
+                print("Tuning page active — pausing camera.")
+                cap.release()
+                while os.path.exists(TUNING_FLAG):
+                    time.sleep(0.5)
+                print("Tuning page closed — resuming camera.")
+                cap = cv2.VideoCapture(CFG.camera_index)
+                prev_frame = None
+                detector = MotionDetect.create_motion_detector(CFG)
+                consecutive_motion = 0
+                motion_union = None
+                continue
+
             # read frame
             ok, frame = cap.read()
             if not ok:

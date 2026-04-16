@@ -83,15 +83,14 @@ All settings are controlled by a single shared `config.py` file in the root `Sen
 
 ### Live Tuning
 
-> ⚠️ Stop the camera process before opening the `/tuning` page. Only one process can access the camera at a time — running both simultaneously will cause an error.
-
-Motion detection parameters can be visualised and adjusted interactively at **http://localhost:5000/tuning**. Changes are reflected immediately — no restart required.
+Motion detection parameters can be visualised and adjusted interactively at **http://localhost:5000/tuning**. While the tuning page is open the camera service pauses automatically; it resumes as soon as you navigate away. Changes are reflected immediately — no restart required.
 
 ## Troubleshooting
 
 | Symptom | Likely cause & fix |
 |---------|--------------------|
-| Inference fails to start | Wrong Python version used for `install`. Delete `venv/` and rerun `python3.12 SentrySpike.py install`. |
+| `akida` fails to install | Python version is too new. Run `python3.12 SentrySpike.py install` (Linux) or `py -3.12 SentrySpike.py install` (Windows). |
+| Inference fails to start | Wrong Python version used for `install`. Delete `venv/` and rerun with Python 3.12 as above. |
 | Camera error / device busy | Another process (e.g. the `/tuning` page) is already using the camera. Stop all other users first. |
 | Web UI shows no events | Ensure the camera and inference processes are both running and writing to the shared SQLite database. |
 | Wrong camera selected | Update `camera_index` in `config.py`. Index 0 is the first device; increment for additional cameras. |
