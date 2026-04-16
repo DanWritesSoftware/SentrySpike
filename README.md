@@ -4,7 +4,7 @@ AI-powered motion camera system — detects, captures, and classifies wildlife u
 
 ## Overview
 
-SentrySpike is a three-process application. Each process runs independently in its own Python virtual environment and communicates with the others via a shared SQLite database and a shared captures directory on disk.
+SentrySpike is a three-process application. All three processes share a single virtual environment and communicate via a shared SQLite database and a shared captures directory on disk.
 
 | Process | Responsibility | Entry Point |
 |---------|---------------|-------------|
@@ -31,65 +31,46 @@ cd SentrySpike
 
 ## Setup
 
-Each process requires its own virtual environment. Open three separate terminal windows, each in the `SentrySpike/` directory.
+> ⚠️ Python 3.12 is recommended. The inference dependencies are not compatible with newer Python releases.
 
-### 1 — SentrySpike_Camera
+Install all dependencies and start all three services with two commands:
 
-**Linux**
 ```bash
-python3 -m venv venv_Camera
-source venv_Camera/bin/activate
-pip install -r requirements_Camera.txt
-python3 SentrySpike_Camera/camera_service.py
+python SentrySpike.py install
+python SentrySpike.py run
 ```
 
-**Windows**
-```bash
-python -m venv venv_Camera
-venv_Camera\Scripts\activate
-pip install -r requirements_Camera.txt
-python SentrySpike_Camera\camera_service.py
-```
-
-### 2 — SentrySpike_Inference
-
-> ⚠️ Python 3.12 is recommended for this virtual environment. The inference dependencies are not compatible with newer Python releases.
-
-**Linux**
-```bash
-python3.12 -m venv venv_Inference
-source venv_Inference/bin/activate
-pip install -r requirements_Inference.txt
-python SentrySpike_Inference/inference_service.py
-```
-
-**Windows**
-```bash
-py -3.12 -m venv venv_Inference
-venv_Inference\Scripts\activate
-pip install -r requirements_Inference.txt
-python SentrySpike_Inference\inference_service.py
-```
-
-### 3 — SentrySpike_Flask
-
-**Linux**
-```bash
-python3 -m venv venv_Flask
-source venv_Flask/bin/activate
-pip install -r requirements_Flask.txt
-python SentrySpike_Flask/web_service.py
-```
-
-**Windows**
-```bash
-python -m venv venv_Flask
-venv_Flask\Scripts\activate
-pip install -r requirements_Flask.txt
-python SentrySpike_Flask\web_service.py
-```
+`install` creates a `venv/` directory and installs all requirements into it. `run` starts all three services in parallel and prefixes their output with color-coded `[Camera]`, `[Inference]`, and `[Flask]` labels. Press **Ctrl+C** to stop everything.
 
 Once running, open a browser and navigate to **http://localhost:5000** to access the web UI.
+
+### Manual Setup (advanced)
+
+If you need to run processes individually, each service can still be started directly using the shared venv:
+
+**Linux**
+```bash
+python3.12 -m venv venv
+source venv/bin/activate
+pip install -r requirements_Camera.txt -r requirements_Inference.txt -r requirements_Flask.txt
+
+# In separate terminals:
+python SentrySpike_Camera/camera_service.py
+python SentrySpike_Inference/inference_service.py
+python -m flask --app SentrySpike_Flask.web_service run
+```
+
+**Windows**
+```bash
+py -3.12 -m venv venv
+venv\Scripts\activate
+pip install -r requirements_Camera.txt -r requirements_Inference.txt -r requirements_Flask.txt
+
+# In separate terminals:
+python SentrySpike_Camera\camera_service.py
+python SentrySpike_Inference\inference_service.py
+python -m flask --app SentrySpike_Flask.web_service run
+```
 
 ## Configuration
 
@@ -110,7 +91,7 @@ Motion detection parameters can be visualised and adjusted interactively at **ht
 
 | Symptom | Likely cause & fix |
 |---------|--------------------|
-| Inference fails to start | Wrong Python version in `venv_Inference`. Recreate the venv using Python 3.12 explicitly. |
+| Inference fails to start | Wrong Python version used for `install`. Delete `venv/` and rerun `python3.12 SentrySpike.py install`. |
 | Camera error / device busy | Another process (e.g. the `/tuning` page) is already using the camera. Stop all other users first. |
 | Web UI shows no events | Ensure the camera and inference processes are both running and writing to the shared SQLite database. |
 | Wrong camera selected | Update `camera_index` in `config.py`. Index 0 is the first device; increment for additional cameras. |
@@ -118,11 +99,9 @@ Motion detection parameters can be visualised and adjusted interactively at **ht
 
 ## Quick-Start Checklist
 
-- Clone the repository
-- Open three separate terminal windows, each in the `SentrySpike/` directory
-- Terminal 1 — create `venv_Camera`, install requirements, start `camera_service.py`
-- Terminal 2 — create `venv_Inference` with Python 3.12, install requirements, start `inference_service.py`
-- Terminal 3 — create `venv_Flask`, install requirements, start `web_service.py`
+- Clone the repository and `cd SentrySpike`
+- Run `python SentrySpike.py install` (requires Python 3.12)
+- Run `python SentrySpike.py run`
 - Open http://localhost:5000 in a browser to verify the web UI is running
 - (Optional) Stop the camera process and open `/tuning` to adjust detection parameters
 
