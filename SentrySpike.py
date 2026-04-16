@@ -95,13 +95,46 @@ def run():
         proc.wait()
 
 
+def update():
+    result = subprocess.run(
+        ["git", "diff", "--name-only", "HEAD", "origin/main"],
+        cwd=ROOT, capture_output=True, text=True
+    )
+    # fetch first so the comparison is against the remote
+    subprocess.run(["git", "fetch", "origin", "main"], cwd=ROOT, check=True)
+
+    result = subprocess.run(
+        ["git", "diff", "--name-only", "HEAD", "origin/main"],
+        cwd=ROOT, capture_output=True, text=True, check=True
+    )
+    changed = result.stdout.splitlines()
+
+    if not changed:
+        print("Already up to date.")
+        return
+
+    print("Pulling latest changes...")
+    subprocess.run(["git", "pull", "origin", "main"], cwd=ROOT, check=True)
+
+    if any("requirements" in f for f in changed):
+        print("\nDependencies changed — reinstalling...")
+        for req in REQUIREMENTS:
+            path = os.path.join(ROOT, req)
+            print(f"Installing {req}...")
+            subprocess.run([VENV_PYTHON, "-m", "pip", "install", "-r", path], check=True)
+
+    print("\nUpdate complete. Run with: python SentrySpike.py run")
+
+
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ("install", "run"):
-        print("Usage: python SentrySpike.py [install|run]")
+    if len(sys.argv) < 2 or sys.argv[1] not in ("install", "run", "update"):
+        print("Usage: python SentrySpike.py [install|run|update]")
         sys.exit(1)
 
     if sys.argv[1] == "install":
         install()
+    elif sys.argv[1] == "update":
+        update()
     else:
         run()
 

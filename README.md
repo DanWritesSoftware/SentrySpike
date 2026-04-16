@@ -96,6 +96,14 @@ Motion detection parameters can be visualised and adjusted interactively at **ht
 | Wrong camera selected | Update `camera_index` in `config.py`. Index 0 is the first device; increment for additional cameras. |
 | Port 5000 already in use | Another application is using port 5000. Edit `web_service.py` to change the port, or stop the conflicting process. |
 
+## Updating
+
+Pull the latest code and reinstall any changed dependencies:
+
+```bash
+python SentrySpike.py update
+```
+
 ## Quick-Start Checklist
 
 - Clone the repository and `cd SentrySpike`

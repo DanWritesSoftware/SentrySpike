@@ -36,9 +36,11 @@ git pull origin main >> "$LOG" 2>&1
 # Reinstall dependencies only if requirements files changed
 if git diff "$LOCAL" "$REMOTE" --name-only | grep -q "requirements"; then
     echo "[$(date)] Requirements changed, reinstalling..." >> "$LOG"
-    venv/bin/pip install -r requirements_Camera.txt -q >> "$LOG" 2>&1
-    venv/bin/pip install -r requirements_Flask.txt -q >> "$LOG" 2>&1
-    venv/bin/pip install -r requirements_Inference.txt -q >> "$LOG" 2>&1
+    venv/bin/pip install \
+        -r requirements_Camera.txt \
+        -r requirements_Inference.txt \
+        -r requirements_Flask.txt \
+        -q >> "$LOG" 2>&1
 fi
 
 echo "[$(date)] Update complete. Rebooting." >> "$LOG"
