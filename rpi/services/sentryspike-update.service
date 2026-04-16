@@ -5,5 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=pi
+User=ubuntu
 ExecStart=/opt/sentryspike/rpi/scripts/update.sh
+
+[Install]
+WantedBy=multi-user.target

@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
+User=ubuntu
 WorkingDirectory=/opt/sentryspike
 ExecStart=/opt/sentryspike/venv/bin/python SentrySpike_Camera/camera_service.py
 Restart=on-failure

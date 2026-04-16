@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
+User=ubuntu
 WorkingDirectory=/opt/sentryspike
 ExecStart=/opt/sentryspike/venv/bin/python SentrySpike_Inference/inference_service.py
 Restart=on-failure

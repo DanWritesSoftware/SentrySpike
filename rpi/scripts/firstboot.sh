@@ -24,7 +24,7 @@ if [ -f "$CONFIGURED_FLAG" ]; then
 fi
 
 # Check if already connected to a network
-if nmcli -t -f STATE general | grep -q "connected"; then
+if nmcli -t -f STATE general | grep -qw "^connected$"; then
     echo "[$(date)] Network already connected. Marking as configured." >> "$LOG"
     touch "$CONFIGURED_FLAG"
     exit 0

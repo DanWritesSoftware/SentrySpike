@@ -63,6 +63,7 @@ fi
 echo "==> Making scripts executable..."
 chmod +x "$INSTALL_DIR/rpi/scripts/update.sh"
 chmod +x "$INSTALL_DIR/rpi/scripts/firstboot.sh"
+chmod +x "$INSTALL_DIR/rpi/scripts/setup.sh"
 
 echo "==> Installing systemd services..."
 cp "$INSTALL_DIR/rpi/services/"*.service /etc/systemd/system/
@@ -71,6 +72,7 @@ cp "$INSTALL_DIR/rpi/services/"*.timer /etc/systemd/system/
 systemctl daemon-reload
 
 systemctl enable sentryspike-firstboot.service
+systemctl enable sentryspike-setup.service
 systemctl enable sentryspike-camera.service
 systemctl enable sentryspike-inference.service
 systemctl enable sentryspike-flask.service

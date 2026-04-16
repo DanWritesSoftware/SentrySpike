@@ -1,0 +1,15 @@
+[Unit]
+Description=SentrySpike First-Boot Setup
+After=network-online.target
+Wants=network-online.target
+Before=sentryspike-camera.service sentryspike-inference.service sentryspike-flask.service
+ConditionPathExists=!/etc/sentryspike/.setup_complete
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/sentryspike/rpi/scripts/setup.sh
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target
