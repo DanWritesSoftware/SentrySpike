@@ -18,7 +18,7 @@ class MotionDetect:
         elif CFG.motion_method == "bgsub":
             return BgSubMotionDetector(CFG)
         else:
-            raise ValueError("Unkown motion_method in config file!")
+            raise ValueError("Unknown motion_method in config file!")
 
     @staticmethod
     def clamp_bbox(x, y, w, h, W, H):
@@ -106,7 +106,7 @@ class MotionDetect:
         # threshold to binary mask (pixels above diff_thresh become 255(white), others 0(black))
         _, mask = cv2.threshold(diff, diff_thresh, 255, cv2.THRESH_BINARY)
 
-       # morphology (clean up the mask)
+        # morphology (clean up the mask)
         kernel = np.ones((3, 3), np.uint8)
         mask = cv2.dilate(mask, kernel, iterations=morph_iters)
         mask = cv2.erode(mask, kernel, iterations=morph_iters)
@@ -283,7 +283,7 @@ class MotionDetect:
         _, mask_raw = cv2.threshold(diff, diff_thresh, 255, cv2.THRESH_BINARY)
         dbg["mask_raw"] = mask_raw
 
-       # morphology (clean up the mask)
+        # morphology (clean up the mask)
         mask = mask_raw.copy()
         kernel = np.ones((3, 3), np.uint8)
         if morph_iters and morph_iters >0:

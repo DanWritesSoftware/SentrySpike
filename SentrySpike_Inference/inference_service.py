@@ -1,8 +1,7 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import akida
-from akida import devices                           # Akida runtime + hardware detection
+import akida                                        # Akida runtime + hardware detection
 
 import cv2
 import numpy as np
@@ -261,7 +260,7 @@ def main():
         raise SystemExit
 
     try:
-        hw_list = devices()
+        hw_list = akida.devices()
         if hw_list:
             hw = hw_list[0]
             print(f"Mapping models to hardware: {hw.version}")
@@ -274,9 +273,12 @@ def main():
 
     print("Waiting for events...")
     while True:
-        pending = db.get_pending_events()
-        for event in pending:
-            process_event(event, model_gate, model_heavy)
+        try:
+            pending = db.get_pending_events()
+            for event in pending:
+                process_event(event, model_gate, model_heavy)
+        except Exception as e:
+            print(f"[Inference] Error in poll loop: {e}")
         time.sleep(2)
 
 

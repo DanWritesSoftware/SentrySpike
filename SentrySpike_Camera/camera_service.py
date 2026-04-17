@@ -6,7 +6,6 @@ from motion_detection import MotionDetect           # Motion detection related f
 
 import cv2                                          # OpenCV for camera access and image processing
 import time                                         # Used for timing loop
-import os                                           # Directory creation
 import json                                         # ROI serialization for DB
 from datetime import datetime                       # Timestamped event IDs
 import database as db                               # Event and frame persistence

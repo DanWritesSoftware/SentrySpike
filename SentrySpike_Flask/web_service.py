@@ -1,6 +1,7 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import contextlib
 import shutil
 import socket
 import subprocess
@@ -157,7 +158,8 @@ def _tuning_generate():
     import cv2
     import numpy as np
 
-    open(TUNING_FLAG, 'w').close()
+    with open(TUNING_FLAG, 'w'):
+        pass
     time.sleep(0.5)  # give camera_service time to release the camera
 
     cap = cv2.VideoCapture(CFG.camera_index)
@@ -370,7 +372,7 @@ def event_gif(event_id):
                     )
 
                 pil_frames.append(img)
-            except Exception:
+            except (OSError, IOError, ValueError):
                 pass        # skip any unreadable frames
 
         if not pil_frames:
@@ -444,6 +446,10 @@ def captures(filename):
     Images live outside the Flask static folder so this dedicated route
     hands them off via send_from_directory.
     '''
+    # Prevent path traversal: resolve and verify the target stays inside CAPTURES_DIR
+    requested = os.path.realpath(os.path.join(CAPTURES_DIR, filename))
+    if not requested.startswith(os.path.realpath(CAPTURES_DIR) + os.sep):
+        abort(404)
     return send_from_directory(CAPTURES_DIR, filename)
 
 
@@ -464,10 +470,9 @@ def _get_system_info():
     info['hostname'] = socket.gethostname()
 
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('8.8.8.8', 80))
-        info['ip'] = s.getsockname()[0]
-        s.close()
+        with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as s:
+            s.connect(('8.8.8.8', 80))
+            info['ip'] = s.getsockname()[0]
     except Exception:
         info['ip'] = 'unavailable'
 
