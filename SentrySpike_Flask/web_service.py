@@ -362,14 +362,17 @@ def event_gif(event_id):
                     scale = 1.0
 
                 if roi_bbox is not None:
-                    x, y, bw, bh = roi_bbox
-                    draw = ImageDraw.Draw(img)
-                    draw.rectangle(
-                        [int(x * scale), int(y * scale),
-                         int((x + bw) * scale), int((y + bh) * scale)],
-                        outline='#00ff88',
-                        width=2,
-                    )
+                    try:
+                        x, y, bw, bh = roi_bbox
+                        draw = ImageDraw.Draw(img)
+                        draw.rectangle(
+                            [int(x * scale), int(y * scale),
+                             int((x + bw) * scale), int((y + bh) * scale)],
+                            outline='#00ff88',
+                            width=2,
+                        )
+                    except (ValueError, TypeError):
+                        pass  # malformed roi_bbox — skip overlay, still include frame
 
                 pil_frames.append(img)
             except (OSError, IOError, ValueError):

@@ -165,7 +165,8 @@ def process_event(event, model_gate, model_heavy):
 
     frame_rows = db.get_event_frames(event_id)
     if not frame_rows:
-        print(f"[Inference] No frames for {event_id}, skipping")
+        print(f"[Inference] No frames for {event_id} — deleting orphaned event")
+        db.delete_event_with_files(event_id)
         return
 
     frames_bgr = []
@@ -177,12 +178,15 @@ def process_event(event, model_gate, model_heavy):
         frames_bgr.append(img)
 
     if not frames_bgr:
-        print(f"[Inference] No loadable frames for {event_id}, skipping")
+        print(f"[Inference] No loadable frames for {event_id} — deleting event")
+        db.delete_event_with_files(event_id)
         return
 
     # --- Stage 1: Gate ---
     gate = run_gate(frames_bgr, model_gate)
     if not gate["ok"]:
+        print(f"[Inference] Gate produced no usable output for {event_id} — deleting event")
+        db.delete_event_with_files(event_id)
         return
 
     if gate["final_label"] == "empty":
