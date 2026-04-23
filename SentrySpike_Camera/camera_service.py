@@ -12,7 +12,6 @@ import database as db                               # Event and frame persistenc
 
 
 CFG = Config()                                      # Instantiate the configuration with default values
-detector = MotionDetect.create_motion_detector(CFG) # Motion detector needs persistance
 
 TUNING_FLAG = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.tuning_active')
 
@@ -80,6 +79,7 @@ def main():
     consecutive_motion = 0
     motion_union = None
     last_trigger_time = 0.0
+    detector = MotionDetect.create_motion_detector(CFG)
 
     try:
         while True:

@@ -53,7 +53,7 @@ fi
 
 # ── 2. Akida Python package ────────────────────────────────────
 echo "[$(date)] Installing Akida Python package..."
-if pip3 install akida==2.18.2 numpy; then
+if pip3 install akida numpy; then
     echo "[$(date)] Akida Python package installed."
 else
     echo "[$(date)] ERROR: Failed to install akida Python package."

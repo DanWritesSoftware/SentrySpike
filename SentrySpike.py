@@ -20,7 +20,7 @@ REQUIREMENTS = [
 SERVICES = [
     ("Camera",    ["SentrySpike_Camera/camera_service.py"]),
     ("Inference", ["SentrySpike_Inference/inference_service.py"]),
-    ("Flask",     ["-m", "flask", "--app", "SentrySpike_Flask.web_service", "run"]),
+    ("Flask",     ["-m", "flask", "--app", "SentrySpike_Flask.web_service", "run", "--host=0.0.0.0"]),
 ]
 
 COLORS = {
@@ -43,6 +43,7 @@ def install():
         print(f"\nInstalling {req}...")
         subprocess.run([VENV_PYTHON, "-m", "pip", "install", "-r", path], check=True)
 
+    os.makedirs(os.path.join(ROOT, "captures"), exist_ok=True)
     print("\nInstall complete. Run with: python SentrySpike.py run")
 
 

@@ -1,0 +1,3 @@
+[submodule "rpi/akida_dw_edma"]
+	path = rpi/akida_dw_edma
+	url = https://github.com/Brainchip-Inc/akida_dw_edma
