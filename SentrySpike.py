@@ -63,7 +63,7 @@ def run():
     threads = []
 
     for label, args in SERVICES:
-        cmd = [VENV_PYTHON] + args
+        cmd = [VENV_PYTHON, "-u"] + args
         proc = subprocess.Popen(
             cmd,
             cwd=ROOT,
