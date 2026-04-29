@@ -4,6 +4,9 @@ venv*/
 # Captured frames
 captures/
 
+# Temporary scripts and scratch files
+temp/
+
 # Database
 *.db
 
