@@ -70,5 +70,5 @@ class Config:
     Inference
     '''
 
-    gate_model_path: str = "SentrySpike_Inference/gate_model/Gate_Version4.fbz"
-    heavy_model_path: str = "SentrySpike_Inference/heavy_model/model_akida.fbz"
+    gate_model_path: str = "SentrySpike_Inference/gate_model/reconverted/gate_model_akida_reconverted.fbz"
+    heavy_model_path: str = "SentrySpike_Inference/heavy_model/reconverted/heavy_model_akida_reconverted.fbz"
