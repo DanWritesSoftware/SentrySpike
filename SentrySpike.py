@@ -3,6 +3,8 @@ import sys
 import os
 import threading
 import signal
+import time
+from collections import deque
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -23,12 +25,90 @@ SERVICES = [
     ("Flask",     ["-m", "SentrySpike_Flask.web_service"]),
 ]
 
-COLORS = {
-    "Camera":    "\033[36m",   # cyan
-    "Inference": "\033[33m",   # yellow
-    "Flask":     "\033[32m",   # green
-    "reset":     "\033[0m",
+SERVICE_COLORS = {
+    "Camera":    "cyan",
+    "Inference": "yellow",
+    "Flask":     "green",
 }
+
+LOGO = (
+    "\n"
+    " ▄█████ ▄▄▄▄▄ ▄▄  ▄▄ ▄▄▄▄▄▄ ▄▄▄▄  ▄▄ ▄▄ ▄█████ ▄▄▄▄  ▄▄ ▄▄ ▄▄ ▄▄▄▄▄ \n"
+    " ▀▀▀▄▄▄ ██▄▄  ███▄██   ██   ██▄█▄ ▀███▀ ▀▀▀▄▄▄ ██▄█▀ ██ ██▄█▀ ██▄▄  \n"
+    " █████▀ ██▄▄▄ ██ ▀██   ██   ██ ██   █   █████▀ ██    ██ ██ ██ ██▄▄▄ \n"
+)
+
+HEADER_SIZE = 12
+MAX_LOG_LINES = 200
+REFRESH_HZ = 4
+
+log_buffers = {label: deque(maxlen=MAX_LOG_LINES) for label, _ in SERVICES}
+procs = {}
+start_times = {}
+_shutdown = threading.Event()
+
+
+def _fmt_uptime(seconds):
+    h, rem = divmod(int(seconds), 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h}h {m}m {s}s"
+    return f"{m}m {s}s"
+
+
+def _build_header():
+    from rich.table import Table
+    from rich.text import Text
+    from rich.panel import Panel
+    from rich.console import Group
+
+    logo = Text(LOGO, style="bold cyan", no_wrap=True)
+
+    grid = Table.grid(padding=(0, 3))
+    grid.add_column(min_width=10)
+    grid.add_column(min_width=20)
+    grid.add_column(min_width=12)
+    grid.add_column()
+
+    for label, _ in SERVICES:
+        color = SERVICE_COLORS[label]
+        proc = procs.get(label)
+        if proc is None:
+            status, pid_str, uptime_str = "[grey50]not started[/]", "-", "-"
+        elif proc.poll() is None:
+            status = "[green]● running[/]"
+            pid_str = str(proc.pid)
+            uptime_str = _fmt_uptime(time.time() - start_times.get(label, time.time()))
+        else:
+            status = f"[red]✗ exited ({proc.returncode})[/]"
+            pid_str = str(proc.pid)
+            uptime_str = "-"
+
+        grid.add_row(
+            f"[{color} bold]{label}[/]",
+            status,
+            f"[dim]PID[/] {pid_str}",
+            f"[dim]Up:[/] {uptime_str}",
+        )
+
+    url = Text("  http://localhost:5000", style="dim")
+    return Panel(Group(logo, grid, url), border_style="dim", padding=(0, 1))
+
+
+def _build_log_panel(label):
+    from rich.panel import Panel
+    from rich.text import Text
+
+    color = SERVICE_COLORS[label]
+    content = Text("\n".join(log_buffers[label]), no_wrap=True)
+    return Panel(content, title=f"[{color} bold]{label}[/]", border_style=color, padding=0)
+
+
+def _stream_output(proc, label):
+    for line in proc.stdout:
+        log_buffers[label].append(line.rstrip())
+    if not _shutdown.is_set():
+        log_buffers[label].append(f"[dim][process exited with code {proc.wait()}][/dim]")
 
 
 def install():
@@ -47,20 +127,28 @@ def install():
     print("\nInstall complete. Run with: python SentrySpike.py run")
 
 
-def stream_output(proc, label):
-    color = COLORS.get(label, "")
-    reset = COLORS["reset"]
-    for line in proc.stdout:
-        print(f"{color}[{label}]{reset} {line}", end="")
-
-
 def run():
     if not os.path.exists(VENV_PYTHON):
         print("Virtual environment not found. Run: python SentrySpike.py install")
         sys.exit(1)
 
-    procs = []
-    threads = []
+    try:
+        from rich.live import Live
+        from rich.layout import Layout
+    except ImportError:
+        print("rich is not installed. Run: python SentrySpike.py install")
+        sys.exit(1)
+
+    layout = Layout()
+    layout.split_column(
+        Layout(name="header", size=HEADER_SIZE),
+        Layout(name="logs"),
+    )
+    layout["logs"].split_row(
+        Layout(name="camera"),
+        Layout(name="inference"),
+        Layout(name="flask"),
+    )
 
     for label, args in SERVICES:
         cmd = [VENV_PYTHON, "-u"] + args
@@ -72,35 +160,34 @@ def run():
             text=True,
             bufsize=1,
         )
-        procs.append(proc)
-        t = threading.Thread(target=stream_output, args=(proc, label), daemon=True)
-        t.start()
-        threads.append(t)
-        print(f"Started {label} (pid {proc.pid})")
+        procs[label] = proc
+        start_times[label] = time.time()
+        threading.Thread(target=_stream_output, args=(proc, label), daemon=True).start()
 
     def shutdown(sig=None, frame=None):
-        print("\nShutting down...")
-        for proc in procs:
-            proc.terminate()
-        for proc in procs:
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-        sys.exit(0)
+        _shutdown.set()
+        for p in procs.values():
+            p.terminate()
 
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
 
-    for proc in procs:
-        proc.wait()
+    with Live(layout, refresh_per_second=REFRESH_HZ, screen=True):
+        while not _shutdown.is_set():
+            layout["header"].update(_build_header())
+            layout["camera"].update(_build_log_panel("Camera"))
+            layout["inference"].update(_build_log_panel("Inference"))
+            layout["flask"].update(_build_log_panel("Flask"))
+            _shutdown.wait(timeout=1 / REFRESH_HZ)
+
+    for p in procs.values():
+        try:
+            p.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            p.kill()
 
 
 def update():
-    result = subprocess.run(
-        ["git", "diff", "--name-only", "HEAD", "origin/main"],
-        cwd=ROOT, capture_output=True, text=True
-    )
     # fetch first so the comparison is against the remote
     subprocess.run(["git", "fetch", "origin", "main"], cwd=ROOT, check=True)
 

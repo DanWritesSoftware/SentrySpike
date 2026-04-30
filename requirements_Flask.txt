@@ -1,5 +1,6 @@
 flask
 waitress
+rich
 Pillow
 opencv-python-headless
 numpy
