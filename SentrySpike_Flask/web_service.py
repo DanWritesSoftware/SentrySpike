@@ -20,7 +20,7 @@ from SentrySpike_Camera.motion_detection import BgSubMotionDetector
 CFG = Config()
 
 # Resolve captures directory to an absolute path relative to the project root,
-# so send_from_directory works regardless of where flask run is invoked from.
+# so send_from_directory works regardless of the working directory at startup.
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CAPTURES_DIR = os.path.join(PROJECT_ROOT, CFG.save_directory)
 
@@ -589,4 +589,5 @@ def info_page():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    from waitress import serve
+    serve(app, host='0.0.0.0', port=5000)

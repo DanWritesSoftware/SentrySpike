@@ -20,7 +20,7 @@ REQUIREMENTS = [
 SERVICES = [
     ("Camera",    ["SentrySpike_Camera/camera_service.py"]),
     ("Inference", ["SentrySpike_Inference/inference_service.py"]),
-    ("Flask",     ["-m", "flask", "--app", "SentrySpike_Flask.web_service", "run", "--host=0.0.0.0"]),
+    ("Flask",     ["-m", "SentrySpike_Flask.web_service"]),
 ]
 
 COLORS = {

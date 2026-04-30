@@ -57,7 +57,7 @@ pip install -r requirements_Camera.txt -r requirements_Inference.txt -r requirem
 # In separate terminals:
 python SentrySpike_Camera/camera_service.py
 python SentrySpike_Inference/inference_service.py
-python -m flask --app SentrySpike_Flask.web_service run
+python -m SentrySpike_Flask.web_service
 ```
 
 **Windows**
@@ -69,7 +69,7 @@ pip install -r requirements_Camera.txt -r requirements_Inference.txt -r requirem
 # In separate terminals:
 python SentrySpike_Camera\camera_service.py
 python SentrySpike_Inference\inference_service.py
-python -m flask --app SentrySpike_Flask.web_service run
+python -m SentrySpike_Flask.web_service
 ```
 
 ## Configuration
