@@ -132,12 +132,13 @@ def run():
         print("Virtual environment not found. Run: python SentrySpike.py install")
         sys.exit(1)
 
-    try:
-        from rich.live import Live
-        from rich.layout import Layout
-    except ImportError:
-        print("rich is not installed. Run: python SentrySpike.py install")
-        sys.exit(1)
+    # Re-exec with the venv Python if we're not already running from it,
+    # so all installed dependencies (rich, waitress, etc.) are available.
+    if os.path.abspath(sys.executable) != os.path.abspath(VENV_PYTHON):
+        os.execv(VENV_PYTHON, [VENV_PYTHON, os.path.abspath(__file__)] + sys.argv[1:])
+
+    from rich.live import Live
+    from rich.layout import Layout
 
     layout = Layout()
     layout.split_column(
